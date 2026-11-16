@@ -14,10 +14,10 @@ plugins {
     id("androidx.baselineprofile")
 }
 
-val signingStoreFile = providers.environmentVariable("SIGNING_STORE_FILE")
-val signingStorePassword = providers.environmentVariable("SIGNING_STORE_PASSWORD")
-val signingKeyAlias = providers.environmentVariable("SIGNING_KEY_ALIAS")
-val signingKeyPassword = providers.environmentVariable("SIGNING_KEY_PASSWORD")
+val signingStoreFile = providers.environmentVariable("SIGNING_STORE_FILE").orElse(providers.gradleProperty("SIGNING_STORE_FILE"))
+val signingStorePassword = providers.environmentVariable("SIGNING_STORE_PASSWORD").orElse(providers.gradleProperty("SIGNING_STORE_PASSWORD"))
+val signingKeyAlias = providers.environmentVariable("SIGNING_KEY_ALIAS").orElse(providers.gradleProperty("SIGNING_KEY_ALIAS"))
+val signingKeyPassword = providers.environmentVariable("SIGNING_KEY_PASSWORD").orElse(providers.gradleProperty("SIGNING_KEY_PASSWORD"))
 val hasReleaseSigning = signingStoreFile.isPresent &&
     signingStorePassword.isPresent &&
     signingKeyAlias.isPresent &&

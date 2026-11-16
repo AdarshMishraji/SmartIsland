@@ -15,7 +15,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.rounded.Podcasts
+import androidx.compose.material3.Icon
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material.icons.Icons
@@ -46,10 +53,8 @@ import com.agupta07505.smartisland.data.SmartIslandSettings
 import com.agupta07505.smartisland.di.SmartIslandRepositories
 import com.agupta07505.smartisland.model.IslandNotification
 import com.agupta07505.smartisland.ui.LocalCardShown
+import com.agupta07505.smartisland.ui.bounceClick
 import com.agupta07505.smartisland.ui.WavyMusicSeekBar
-import androidx.compose.ui.res.stringResource
-import com.agupta07505.smartisland.R
-import kotlinx.coroutines.launch
 import com.agupta07505.smartisland.util.MediaArt
 import com.agupta07505.smartisland.util.runCatchingLogged
 import androidx.compose.runtime.getValue
@@ -137,7 +142,6 @@ fun MusicExpanded(
         controller.registerCallback(callback)
         onDispose { controller.unregisterCallback(callback) }
     }
-    val mediaOutput = rememberMediaOutput(controller)
     val outputScope = androidx.compose.runtime.rememberCoroutineScope()
     val controls = remember(playbackState, notification?.actionIntents) {
         MediaControls.resolve(playbackState, notification)
@@ -183,8 +187,7 @@ fun MusicExpanded(
     val artwork = if (art.hasArtwork) art else null
     // Artwork behind the card keeps its own look: the same black dim and white text as on the dark island, whatever the island's theme.
     // Only a card with no artwork backdrop follows the light / dark palette.
-    val showsArtworkBackdrop = settings.enableMusicArtworkBackground && artworkImage != null
-    val palette = if (showsArtworkBackdrop) IslandPalette.Dark else LocalIslandPalette.current
+    val palette = IslandPalette.Dark
 
     androidx.compose.runtime.CompositionLocalProvider(LocalIslandPalette provides palette) {
     Box(
@@ -192,28 +195,15 @@ fun MusicExpanded(
             .fillMaxWidth()
             .wrapContentHeight()
     ) {
-        if (settings.enableMusicArtworkBackground && artworkImage != null) {
-            Image(
-                bitmap = artworkImage,
-                contentDescription = "Album artwork background",
-                contentScale = ContentScale.Crop,
-                // Bicubic / mipmapped drawing; the default (low) filter shows hard pixels when a picture is scaled.
-                filterQuality = androidx.compose.ui.graphics.FilterQuality.High,
-                modifier = Modifier.matchParentSize()
-            )
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                Color.Black.copy(alpha = MEDIA_SHADE_SCRIM_TOP),
-                                Color.Black.copy(alpha = MEDIA_SHADE_SCRIM_BOTTOM)
-                            )
-                        )
-                    )
-            )
-        }
+        // Plain black card, no artwork backdrop: the visualizer is the only decoration.
+        Box(Modifier.matchParentSize().background(Color.Black))
+
+        // Behind the buttons, in front of the artwork backdrop.
+        MediaVisualizerBackground(
+            isPlaying = localIsPlaying,
+            color = mediaVisualizerColor(settings, art.tint),
+            modifier = Modifier.matchParentSize()
+        )
 
         val resetTimer = { SmartIslandRepositories.notificationRepository(context).resetTimer() }
         val artworkTint = art.tint
@@ -223,7 +213,6 @@ fun MusicExpanded(
         val isExplicit = art.explicit
         val launcherIcon = remember(notification?.icon) { notification?.icon?.asImageBitmap() }
         val smallIcon = remember(notification?.smallIcon) { notification?.smallIcon?.asImageBitmap() }
-        val customs = (controls.leftCustom + controls.rightCustom).take(MEDIA_SHADE_MAX_CUSTOM)
         // No labels for streams without a length: the bar cannot seek there either.
         val hasDuration = durationMs != null && durationMs > 0
 
@@ -238,46 +227,37 @@ fun MusicExpanded(
                 )
                 .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = bottomPadding)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                MediaAppBadge(smallIcon, launcherIcon, shadeColors)
-                MediaOutputChip(
-                    label = com.agupta07505.smartisland.util.MediaOutputRules.label(
-                        mediaOutput,
-                        phoneLabel = stringResource(R.string.media_output_this_phone),
-                        castLabel = stringResource(R.string.media_output_cast),
-                        wiredLabel = stringResource(R.string.media_output_wired),
-                        headphonesLabel = stringResource(R.string.media_output_wired_headphones)
-                    ),
-                    colors = shadeColors,
-                    onClick = {
-                        val pkg = notification?.packageName
-                        if (pkg != null) {
-                            outputScope.launch {
-                                com.agupta07505.smartisland.util.MediaOutputSwitcher.open(context.applicationContext, pkg)
-                            }
-                        }
-                    },
-                    icon = mediaOutputIcon(mediaOutput.kind)
-                )
-            }
-            Spacer(Modifier.height(16.dp))
+            // Thumbnail + title / artist.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // The notification's own picture is never blurred, unlike the backdrop image.
+                val thumb = remember(notification?.largeIcon) { notification?.largeIcon?.asImageBitmap() } ?: artworkImage
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(palette.text.copy(alpha = 0.12f))
+                ) {
+                    if (thumb != null) {
+                        Image(
+                            bitmap = thumb,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.matchParentSize()
+                        )
+                    }
+                }
                 Column(Modifier.weight(1f)) {
                     Text(
                         notification?.title?.takeIf { it.isNotBlank() } ?: "Song",
                         color = palette.text,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -289,14 +269,103 @@ fun MusicExpanded(
                             color = palette.textSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            fontSize = 13.sp
+                            fontSize = 12.sp
                         )
                     }
                 }
+                // Output switch: opens the playing app's output picker.
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .bounceClick {
+                            resetTimer()
+                            notification?.packageName?.let { pkg ->
+                                outputScope.launch {
+                                    com.agupta07505.smartisland.util.MediaOutputSwitcher.open(context.applicationContext, pkg)
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Rounded.Podcasts, "Switch output", tint = palette.textSecondary, modifier = Modifier.size(22.dp))
+                }
+            }
+            // elapsed - thin bar - total. No labels for streams without a length: the bar cannot seek there either.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (hasDuration) MusicPositionText(livePosition)
+                WavyMusicSeekBar(
+                    progress = progressNow,
+                    isPlaying = localIsPlaying,
+                    onSeek = { newProgress ->
+                        if (durationMs != null && durationMs > 0) {
+                            val newPosition = (newProgress * durationMs).toLong()
+                            livePosition.longValue = newPosition
+                            lastSeekTimeMs[0] = System.currentTimeMillis()
+                            resetTimer()
+                            if (controller != null) {
+                                runCatchingLogged("MusicExpanded", "Failed to seekTo position") {
+                                    controller.transportControls.seekTo(newPosition)
+                                }
+                            } else {
+                                notification?.packageName?.let { pkg ->
+                                    SmartIslandRepositories.notificationRepository(context).sendCommand(
+                                        com.agupta07505.smartisland.data.SmartIslandCommand.SeekTo(pkg, newPosition)
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    trackColor = palette.text.copy(alpha = 0.3f),
+                    waveColor = palette.text,
+                    thumbColor = palette.text,
+                    // Flat thin line with a small dot, no wave.
+                    waveHeight = 0.dp,
+                    trackThickness = 3.dp,
+                    thumbRadius = 4.dp,
+                )
+                if (hasDuration) {
+                    Text(
+                        formatDuration(durationMs),
+                        color = palette.text.copy(alpha = 0.75f),
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp
+                    )
+                }
+            }
+            // the app's own buttons (left end) | rewind, previous, play / pause, next, fast-forward | the app's own buttons (right end). Was: app badge + the app's own buttons | previous, play / pause, next | the app's own buttons. Equal weights keep the transport centred.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    controls.leftCustom.forEach { custom ->
+                        CustomControlButton(custom, controller, notification, 40.dp, resetTimer)
+                    }
+                }
+                controls.beforePrevious.forEach { custom ->
+                    CustomControlButton(custom, controller, notification, 40.dp, resetTimer)
+                }
+                if (controls.hasPrevious) {
+                    MediaShadeIconButton(Icons.Rounded.SkipPrevious, "Previous", onClick = {
+                        resetTimer()
+                        if (controller != null) {
+                            runCatchingLogged("MusicExpanded", "Failed to skipToPrevious") {
+                                controller.transportControls.skipToPrevious()
+                            }
+                        } else {
+                            notification.sendFirstAction(context, "previous", "prev", "rewind")
+                        }
+                    })
+                }
                 if (controls.hasPlayPause) {
-                    MediaPlayPauseButton(
-                        isPlaying = localIsPlaying,
-                        colors = shadeColors,
+                    MediaShadeIconButton(
+                        if (localIsPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        if (localIsPlaying) "Pause" else "Play",
                         onClick = {
                             resetTimer()
                             val targetState = !localIsPlaying
@@ -312,75 +381,6 @@ fun MusicExpanded(
                         }
                     )
                 }
-            }
-            Spacer(Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (controls.hasPrevious) {
-                    MediaShadeIconButton(Icons.Rounded.SkipPrevious, "Previous", onClick = {
-                        resetTimer()
-                        if (controller != null) {
-                            runCatchingLogged("MusicExpanded", "Failed to skipToPrevious") {
-                                controller.transportControls.skipToPrevious()
-                            }
-                        } else {
-                            notification.sendFirstAction(context, "previous", "prev", "rewind")
-                        }
-                    })
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    // The labels sit under the bar. The spacer on top is as tall as the labels, so the bar itself
-                    // stays level with the previous / next buttons.
-                    if (hasDuration) Spacer(Modifier.height(12.dp))
-                    WavyMusicSeekBar(
-                        progress = progressNow,
-                        isPlaying = localIsPlaying,
-                        onSeek = { newProgress ->
-                            if (durationMs != null && durationMs > 0) {
-                                val newPosition = (newProgress * durationMs).toLong()
-                                livePosition.longValue = newPosition
-                                lastSeekTimeMs[0] = System.currentTimeMillis()
-                                resetTimer()
-                                if (controller != null) {
-                                    runCatchingLogged("MusicExpanded", "Failed to seekTo position") {
-                                        controller.transportControls.seekTo(newPosition)
-                                    }
-                                } else {
-                                    notification?.packageName?.let { pkg ->
-                                        SmartIslandRepositories.notificationRepository(context).sendCommand(
-                                            com.agupta07505.smartisland.data.SmartIslandCommand.SeekTo(pkg, newPosition)
-                                        )
-                                    }
-                                }
-                            }
-                        },
-                        trackColor = palette.text.copy(alpha = 0.3f),
-                        waveColor = palette.text,
-                        thumbColor = palette.text,
-                        pillThumb = true,
-                    )
-                    if (hasDuration) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(12.dp)
-                                .padding(horizontal = 2.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            MusicPositionText(livePosition)
-                            Text(
-                                formatDuration(durationMs),
-                                color = palette.text.copy(alpha = 0.75f),
-                                fontSize = 10.sp,
-                                lineHeight = 12.sp
-                            )
-                        }
-                    }
-                }
                 if (controls.hasNext) {
                     MediaShadeIconButton(Icons.Rounded.SkipNext, "Next", onClick = {
                         resetTimer()
@@ -393,8 +393,13 @@ fun MusicExpanded(
                         }
                     })
                 }
-                customs.forEach { custom ->
+                controls.afterNext.forEach { custom ->
                     CustomControlButton(custom, controller, notification, 40.dp, resetTimer)
+                }
+                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
+                    controls.rightCustom.forEach { custom ->
+                        CustomControlButton(custom, controller, notification, 40.dp, resetTimer)
+                    }
                 }
             }
         }

@@ -61,7 +61,10 @@ data class ResolvedMediaControls(
     val hasPlayPause: Boolean,
     val hasNext: Boolean,
     val leftCustom: List<MediaCustomControl>,
-    val rightCustom: List<MediaCustomControl>
+    val rightCustom: List<MediaCustomControl>,
+    /** Rewind / fast-forward style buttons, drawn right beside previous / next. */
+    val beforePrevious: List<MediaCustomControl> = emptyList(),
+    val afterNext: List<MediaCustomControl> = emptyList()
 )
 
 object MediaControls {
@@ -69,6 +72,8 @@ object MediaControls {
 
     private val PREVIOUS_WORDS = listOf("previous", "prev", "rewind")
     private val NEXT_WORDS = listOf("next", "skip", "forward")
+    private val BACK_WORDS = listOf("rewind", "replay", "back", "-10", "-15", "-30")
+    private val FORWARD_WORDS = listOf("fast", "forward", "ffwd", "+10", "+15", "+30")
     private val PLAY_PAUSE_WORDS = listOf("play", "pause", "resume")
 
     /**
@@ -130,13 +135,20 @@ object MediaControls {
         hasNext: Boolean,
         customs: List<MediaCustomControl>
     ): ResolvedMediaControls {
-        val leftCount = (customs.size + 1) / 2
+        val isBack = { c: MediaCustomControl -> c.label.lowercase().let { l -> BACK_WORDS.any { it in l } } }
+        val isForward = { c: MediaCustomControl -> c.label.lowercase().let { l -> FORWARD_WORDS.any { it in l } } }
+        val back = customs.filter(isBack)
+        val forward = customs.filter { !isBack(it) && isForward(it) }
+        val rest = customs - back.toSet() - forward.toSet()
+        val leftCount = (rest.size + 1) / 2
         return ResolvedMediaControls(
             hasPrevious = hasPrevious,
             hasPlayPause = hasPlayPause,
             hasNext = hasNext,
-            leftCustom = customs.take(leftCount),
-            rightCustom = customs.drop(leftCount)
+            leftCustom = rest.take(leftCount),
+            rightCustom = rest.drop(leftCount),
+            beforePrevious = back,
+            afterNext = forward
         )
     }
 

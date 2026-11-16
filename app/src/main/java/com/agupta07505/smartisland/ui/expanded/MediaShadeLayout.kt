@@ -11,7 +11,23 @@ import kotlinx.coroutines.launch
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import com.agupta07505.smartisland.ui.LocalCardShown
+import kotlin.math.sin
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -324,5 +340,51 @@ internal fun MediaShadeIconButton(
         contentAlignment = Alignment.Center
     ) {
         Icon(imageVector = icon, contentDescription = description, tint = LocalIslandPalette.current.text, modifier = Modifier.size(24.dp))
+    }
+}
+
+/** The visualizer's colour: the artwork's own hue, vivid (lightness 60); the customised music colour when there is no artwork colour. */
+internal fun mediaVisualizerColor(settings: SmartIslandSettings, tint: ArtworkTint?): Color =
+    tint?.let {
+        toneColor(60.0, it.chroma.toDouble().coerceIn(SHADE_MIN_CHROMA, SHADE_MAX_CHROMA), it.labHue)
+    } ?: Color(settings.musicVisualizerColor)
+
+/**
+ * Glow rising from the bottom edge behind the card. Decorative: there is no audio capture, the
+ * glow follows a looping wave while playing and dims when paused. The phase is only read while drawing.
+ */
+@Composable
+internal fun MediaVisualizerBackground(isPlaying: Boolean, color: Color, modifier: Modifier = Modifier) {
+    val amount by animateFloatAsState(if (isPlaying) 1f else 0f, tween(400), label = "vizAmount")
+    // A paused, settled card (or one waiting collapsed) runs no animation at all.
+    val running = (isPlaying || amount > 0f) && LocalCardShown.current
+    val phase: State<Float> = if (running) {
+        rememberInfiniteTransition(label = "viz").animateFloat(
+            initialValue = 0f,
+            targetValue = 6.2831855f,
+            animationSpec = infiniteRepeatable(tween(2400, easing = LinearEasing), RepeatMode.Restart),
+            label = "vizPhase"
+        )
+    } else remember { mutableFloatStateOf(0f) }
+    Canvas(modifier) {
+        // Origin Island look: soft colour glows welling up from the bottom edge, drifting sideways and fading to black
+        // upward; no bars. Stronger on the right. Paused, the glow stays but dims and stops moving.
+        val p = phase.value
+        val level = 0.45f + 0.55f * amount
+        val weights = floatArrayOf(0.55f, 0.7f, 1f)
+        for (i in 0..2) {
+            val cx = size.width * (0.15f + 0.35f * i + 0.10f * sin(p + i * 2.1f))
+            val cy = size.height * (1.02f + 0.06f * sin(2 * p + i * 1.7f))
+            val r = size.width * (0.42f + 0.08f * sin(2 * p + i * 1.1f))
+            drawCircle(
+                brush = Brush.radialGradient(
+                    listOf(color.copy(alpha = 0.75f * weights[i] * level), Color.Transparent),
+                    center = Offset(cx, cy),
+                    radius = r
+                ),
+                radius = r,
+                center = Offset(cx, cy)
+            )
+        }
     }
 }
