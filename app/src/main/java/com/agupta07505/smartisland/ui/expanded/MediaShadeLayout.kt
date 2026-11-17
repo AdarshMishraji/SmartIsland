@@ -335,11 +335,11 @@ internal fun MediaShadeIconButton(
 ) {
     Box(
         modifier = modifier
-            .size(40.dp)
+            .size(56.dp)
             .bounceClick { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Icon(imageVector = icon, contentDescription = description, tint = LocalIslandPalette.current.text, modifier = Modifier.size(24.dp))
+        Icon(imageVector = icon, contentDescription = description, tint = LocalIslandPalette.current.text, modifier = Modifier.size(34.dp))
     }
 }
 

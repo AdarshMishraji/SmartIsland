@@ -262,7 +262,14 @@ internal fun ExpandedCardHost(
                     }
                 }
         ) {
-            androidx.compose.runtime.CompositionLocalProvider(LocalCardShown provides cardLive) {
+            // Portrait: the card covers the status bar, so each card pads its own content down below it (the camera sits up there); backdrops still fill the strip.
+            val topInset = if (!isLandscape && !settings.enableNotchMode) {
+                (layout.topBarHeight.dp - portraitEdgeGapDp(settings.yOffset).dp).coerceAtLeast(0.dp)
+            } else 0.dp
+            androidx.compose.runtime.CompositionLocalProvider(
+                LocalCardShown provides cardLive,
+                com.agupta07505.smartisland.ui.expanded.LocalCardTopInset provides topInset
+            ) {
             IslandExpandedContent(
                 notifications = hostNotifications,
                 launcherApps = launcherApps,

@@ -146,6 +146,7 @@ fun IslandExpandedContent(
             return
         }
         val density = LocalDensity.current
+        val topInsetEmpty = LocalCardTopInset.current
         Box(
             modifier = modifier
                 .fillMaxWidth()
@@ -153,7 +154,7 @@ fun IslandExpandedContent(
                 .onSizeChanged {
                     val measuredHeight = with(density) { it.height.toDp() }
                     if (measuredHeight > 0.dp) {
-                        val clamped = measuredHeight.coerceIn(80.dp, 260.dp)
+                        val clamped = measuredHeight.coerceIn(80.dp, 260.dp + topInsetEmpty)
                         onHeightMeasured(clamped)
                     }
                 }
@@ -175,7 +176,9 @@ fun IslandExpandedContent(
                         )
                 )
             }
-            EmptyExpanded(settings = settings, apps = launcherApps, onLaunchApp = onLaunchApp, onAppAction = onAppAction)
+            Box(Modifier.padding(top = LocalCardTopInset.current)) {
+                EmptyExpanded(settings = settings, apps = launcherApps, onLaunchApp = onLaunchApp, onAppAction = onAppAction)
+            }
         }
         return
     }
@@ -322,7 +325,9 @@ fun IslandExpandedContent(
         val currentPage = if (pagerIdle && !siblingPickerOpen && selectedPage in pageCards.indices) selectedPage else pagerState.currentPage
         val currentNotification = cardAt(currentPage)
 
-        fun clampHeightForMode(notif: IslandNotification?, height: Dp): Dp {
+        val topInset = LocalCardTopInset.current
+        // The limits below are for the card's content; the strip above it is on top of them.
+        fun clampHeightForModeInner(notif: IslandNotification?, height: Dp): Dp {
             if (notif != null && notif.mode == IslandMode.Notification) {
                 val shownSteps = cardStepsAccess.stepsFor(notif.key)
                 return when {
@@ -334,9 +339,11 @@ fun IslandExpandedContent(
             return clampCardHeightForMode(notif?.mode, height)
         }
 
+        fun clampHeightForMode(notif: IslandNotification?, height: Dp): Dp = clampHeightForModeInner(notif, height - topInset) + topInset
+
         val currentPageHeightRaw = currentNotification?.let { pageHeights[it.key] }
         val currentPageHeight = currentPageHeightRaw?.let { clampHeightForMode(currentNotification, it) }
-            ?: com.agupta07505.smartisland.ui.defaultEstimatedHeightForMode(currentNotification?.mode)
+            ?: (com.agupta07505.smartisland.ui.defaultEstimatedHeightForMode(currentNotification?.mode) + topInset)
 
         val naturalTargetHeight = run {
             val nextPage = if (offsetFraction > 0f) {
@@ -349,9 +356,9 @@ fun IslandExpandedContent(
             val nextNotification = cardAt(nextPage)
             val nextHeightRaw = nextNotification?.let { pageHeights[it.key] }
             val nextHeight = (nextHeightRaw?.let { clampHeightForMode(nextNotification, it) }
-                ?: com.agupta07505.smartisland.ui.defaultEstimatedHeightForMode(nextNotification?.mode))
+                ?: (com.agupta07505.smartisland.ui.defaultEstimatedHeightForMode(nextNotification?.mode) + topInset))
             val fraction = kotlin.math.abs(offsetFraction)
-            (currentPageHeight + (nextHeight - currentPageHeight) * fraction).coerceIn(72.dp, 260.dp)
+            (currentPageHeight + (nextHeight - currentPageHeight) * fraction).coerceIn(72.dp, 260.dp + topInset)
         }
         // The gesture supplies the dragged step's height (the shell reads it directly), so nothing here recomposes per frame.
         val stepDrag = LocalStepDrag.current
@@ -933,7 +940,7 @@ fun IslandExpandedContent(
 internal fun clampCardHeightForMode(mode: IslandMode?, height: Dp): Dp = when (mode) {
     IslandMode.Battery, IslandMode.IncomingCall -> height.coerceIn(72.dp, 125.dp)
     IslandMode.Notification -> height.coerceIn(95.dp, 240.dp)
-    IslandMode.Music -> height.coerceIn(115.dp, 180.dp)
+    IslandMode.Music -> height.coerceIn(115.dp, 230.dp)
     IslandMode.LiveActivity -> height.coerceIn(140.dp, 205.dp)
     IslandMode.Navigation -> height.coerceIn(NAVIGATION_EXPANDED_HEIGHT, NAVIGATION_EXPANDED_HEIGHT + 20.dp)
     IslandMode.DownloadUpload -> height.coerceIn(120.dp, 195.dp)
@@ -1035,6 +1042,8 @@ internal fun ExpandedCardPage(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                // The content starts below the status bar; the backdrop above (matchParentSize of the page) still fills the strip.
+                .padding(top = LocalCardTopInset.current)
                 .then(
                     // The music card draws its own artwork backdrop inside, so it applies the alpha to its foreground itself.
                     if (foregroundAlpha != null && notification.mode != IslandMode.Music) {
@@ -1353,7 +1362,8 @@ private fun LauncherPager(
     modifier: Modifier = Modifier,
     content: @Composable (LauncherPage) -> Unit
 ) {
-    var page by remember { mutableStateOf(LauncherPage.Apps) }
+    // Opens on Utilities; a swipe up / down (or left / right) leads to the pinned apps, then the recents.
+    var page by remember { mutableStateOf(LauncherPage.Utilities) }
     var lastAppsLevelPage by remember { mutableStateOf(LauncherPage.Apps) }
     // The way the last swipe went, read by the transition so the new page comes in from the side the finger moved away from.
     var swipe by remember { mutableStateOf(LauncherSwipe.Up) }
@@ -1390,13 +1400,13 @@ private fun LauncherPager(
                 val enter: androidx.compose.animation.EnterTransition
                 val exit: androidx.compose.animation.ExitTransition
                 when (swipe) {
-                    LauncherSwipe.Up -> {
-                        enter = androidx.compose.animation.slideInVertically(spec) { it } + androidx.compose.animation.fadeIn(fade)
-                        exit = androidx.compose.animation.slideOutVertically(spec) { -it } + androidx.compose.animation.fadeOut(fade)
-                    }
-                    LauncherSwipe.Down -> {
+                    // Utilities is the first page, above the apps level: it comes in from the top and leaves upwards.
+                    LauncherSwipe.Up, LauncherSwipe.Down -> if (targetState == LauncherPage.Utilities) {
                         enter = androidx.compose.animation.slideInVertically(spec) { -it } + androidx.compose.animation.fadeIn(fade)
                         exit = androidx.compose.animation.slideOutVertically(spec) { it } + androidx.compose.animation.fadeOut(fade)
+                    } else {
+                        enter = androidx.compose.animation.slideInVertically(spec) { it } + androidx.compose.animation.fadeIn(fade)
+                        exit = androidx.compose.animation.slideOutVertically(spec) { -it } + androidx.compose.animation.fadeOut(fade)
                     }
                     LauncherSwipe.Left -> {
                         enter = androidx.compose.animation.slideInHorizontally(spec) { it } + androidx.compose.animation.fadeIn(fade)
@@ -1436,8 +1446,9 @@ private fun BoxScope.LauncherPageDots(page: LauncherPage, recentsEnabled: Boolea
         modifier = Modifier.align(Alignment.CenterEnd),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Dot(page != LauncherPage.Utilities)
+        // Utilities is page 0, the apps level (pinned / recents) comes after it.
         Dot(page == LauncherPage.Utilities)
+        Dot(page != LauncherPage.Utilities)
     }
     if (recentsEnabled && page != LauncherPage.Utilities) {
         Row(

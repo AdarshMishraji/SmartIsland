@@ -129,9 +129,9 @@ class IslandOverlayLayoutTest {
         )
         assertEquals(340f, smallLandscapeWidth, 0.01f)
 
-        // Portrait is untouched.
+        // Portrait: the whole width minus the edge padding on both sides.
         assertEquals(
-            411f * 0.95f,
+            411f - 16f,
             com.agupta07505.smartisland.ui.calculateExpandedWidth(false, 411f, 914f),
             0.01f
         )
@@ -159,7 +159,7 @@ class IslandOverlayLayoutTest {
         assertEquals(484f, w(500f, null), 0.01f)
         // Picker closed, and portrait, are unchanged.
         assertEquals(457f, w(914f, 260f, picker = false), 0.01f)
-        assertEquals(411f * 0.95f, w(411f, 260f, landscape = false), 0.01f)
+        assertEquals(411f - 16f, w(411f, 260f, landscape = false), 0.01f)
     }
 
     @Test
@@ -177,7 +177,7 @@ class IslandOverlayLayoutTest {
             com.agupta07505.smartisland.ui.calculateExpandedTopOffset(
                 enableNotchMode = false, hasCompanion = companion, statusBarHeightDp = sb, isLandscape = landscape
             )
-        assertEquals(24f, top(24f, landscape = false), 0.01f)
+        assertEquals(8f, top(24f, landscape = false), 0.01f)
         assertEquals(10f, top(24f, landscape = true), 0.01f)
         assertEquals(0f, top(6f, landscape = true), 0.01f)
     }
@@ -236,13 +236,13 @@ class IslandOverlayLayoutTest {
         )
         assertEquals(48f, offsetTall, 0.01f)
 
-        // Non-notch mode preserves standard status bar positioning
+        // Non-notch portrait: the card covers the status bar, a small padding from the top.
         val normalOffset = com.agupta07505.smartisland.ui.calculateExpandedTopOffset(
             enableNotchMode = false,
             hasCompanion = false,
             statusBarHeightDp = statusBarHeightStandard
         )
-        assertEquals(statusBarHeightStandard, normalOffset, 0.01f)
+        assertEquals(8f, normalOffset, 0.01f)
 
         val companionOffset = com.agupta07505.smartisland.ui.calculateExpandedTopOffset(
             enableNotchMode = false,
@@ -251,7 +251,7 @@ class IslandOverlayLayoutTest {
             circleSizeDp = 34f,
             compactGapDp = 8f
         )
-        assertEquals(42f, companionOffset, 0.01f)
+        assertEquals(8f, companionOffset, 0.01f)
     }
 
     @Test

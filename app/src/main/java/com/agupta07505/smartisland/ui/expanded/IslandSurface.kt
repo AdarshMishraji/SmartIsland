@@ -104,3 +104,6 @@ internal fun Modifier.islandSurface(
             else Modifier.background(surfaceColor.copy(alpha = alpha))
         )
 }
+
+/** Height of the status-bar strip at the top of an expanded card (portrait); a card that paints its own backdrop extends it upward over this. */
+val LocalCardTopInset = androidx.compose.runtime.compositionLocalOf { 0.dp }

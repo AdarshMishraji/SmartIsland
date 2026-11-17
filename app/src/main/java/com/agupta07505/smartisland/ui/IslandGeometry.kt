@@ -16,6 +16,14 @@ import androidx.compose.ui.unit.dp
 import com.agupta07505.smartisland.model.IslandMode
 
 internal const val EXPANDED_WIDTH_RATIO = 0.95f
+/** Portrait: the expanded card covers the status bar, this far in from the top and both side edges of the screen. */
+internal const val PORTRAIT_EDGE_PADDING_DP = 8f
+
+/**
+ * The gap from the screen edge, the same on the top and both sides. The overlay window itself starts yOffset below the
+ * screen top, so the gap is never smaller than that.
+ */
+internal fun portraitEdgeGapDp(yOffsetDp: Float): Float = maxOf(PORTRAIT_EDGE_PADDING_DP, yOffsetDp)
 internal const val LANDSCAPE_EXPANDED_WIDTH_RATIO = 0.5f
 internal const val LANDSCAPE_EXPANDED_MIN_WIDTH_DP = 340f
 internal const val LANDSCAPE_EXPANDED_MAX_WIDTH_DP = 560f
@@ -66,6 +74,19 @@ internal fun splitCardMaxWidthDp(screenWidthDp: Float): Float {
 internal fun collapsedTopShiftDp(isLandscape: Boolean, enableNotchMode: Boolean, yOffsetDp: Float): Float =
     if (isLandscape && !enableNotchMode) yOffsetDp.coerceAtLeast(0f) else 0f
 
+/** The device's screen corner radius in dp (API 31+ rounded corner, then the framework dimen), or 0f when unknown. */
+internal fun deviceCornerRadiusDp(context: android.content.Context): Float {
+    val density = context.resources.displayMetrics.density
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+        val wm = context.getSystemService(android.content.Context.WINDOW_SERVICE) as? android.view.WindowManager
+        val px = wm?.currentWindowMetrics?.windowInsets?.getRoundedCorner(android.view.RoundedCorner.POSITION_TOP_LEFT)?.radius ?: 0
+        if (px > 0) return px / density
+    }
+    val id = context.resources.getIdentifier("rounded_corner_radius", "dimen", "android")
+    val px = if (id > 0) context.resources.getDimensionPixelSize(id) else 0
+    return px / density
+}
+
 /** Returns the landscape status bar height in dp, or 0f when the device doesn't define one. */
 internal fun landscapeStatusBarHeightDp(context: android.content.Context): Float {
     val id = context.resources.getIdentifier("status_bar_height_landscape", "dimen", "android")
@@ -78,10 +99,10 @@ internal fun calculateExpandedWidth(
     isLandscape: Boolean,
     screenWidthDp: Float,
     screenHeightDp: Float,
-    ratio: Float = EXPANDED_WIDTH_RATIO,
     pickerSideBySide: Boolean = false,
     // Measured natural width of the card island (split layout); null = not measured yet.
-    splitCardWidthDp: Float? = null
+    splitCardWidthDp: Float? = null,
+    edgeGapDp: Float = PORTRAIT_EDGE_PADDING_DP
 ): Float {
     return if (isLandscape && pickerSideBySide) {
         // Card island (its natural width) + gap + picker island, never wider than the screen
@@ -95,7 +116,7 @@ internal fun calculateExpandedWidth(
         (screenWidthDp * LANDSCAPE_EXPANDED_WIDTH_RATIO)
             .coerceIn(LANDSCAPE_EXPANDED_MIN_WIDTH_DP, LANDSCAPE_EXPANDED_MAX_WIDTH_DP)
     } else {
-        screenWidthDp * ratio
+        screenWidthDp - 2 * edgeGapDp
     }
 }
 
@@ -106,8 +127,12 @@ internal fun calculateExpandedTopOffset(
     notchHeightDp: Float = 35f,
     circleSizeDp: Float = 34f,
     compactGapDp: Float = COMPACT_INDICATOR_GAP_DP,
-    isLandscape: Boolean = false
+    isLandscape: Boolean = false,
+    yOffsetDp: Float = 0f
 ): Float {
+    // Portrait: the card sits over the status bar, the same gap from the top edge as from the sides (the window starts
+    // yOffset below the screen top; notch mode still clears the hardware notch).
+    if (!isLandscape && !enableNotchMode) return portraitEdgeGapDp(yOffsetDp) - yOffsetDp
     val offset = if (enableNotchMode) {
         maxOf(statusBarHeightDp, notchHeightDp) + 8f
     } else if (hasCompanion) {
@@ -167,7 +192,7 @@ internal enum class CompactNotificationShape { MiniPill, Circle }
 
 internal fun defaultEstimatedHeightForMode(mode: IslandMode?): Dp {
     return when (mode) {
-        IslandMode.Music -> 175.dp
+        IslandMode.Music -> 215.dp
         IslandMode.Notification -> 135.dp
         IslandMode.IncomingCall, IslandMode.Battery -> 115.dp
         IslandMode.LiveActivity -> 180.dp

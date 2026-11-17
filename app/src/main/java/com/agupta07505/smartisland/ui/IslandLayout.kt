@@ -276,14 +276,16 @@ internal fun rememberIslandLayout(
         screenWidthDp = configuration.screenWidthDp.toFloat(),
         screenHeightDp = configuration.screenHeightDp.toFloat(),
         pickerSideBySide = pickerSideBySide,
-        splitCardWidthDp = if (splitCardWidthDp > 0f) splitCardWidthDp else null
+        splitCardWidthDp = if (splitCardWidthDp > 0f) splitCardWidthDp else null,
+        edgeGapDp = portraitEdgeGapDp(settings.yOffset)
     ).dp
     val singleExpandedWidth = calculateExpandedWidth(
         isLandscape = isLandscape,
         screenWidthDp = configuration.screenWidthDp.toFloat(),
         screenHeightDp = configuration.screenHeightDp.toFloat(),
         pickerSideBySide = false,
-        splitCardWidthDp = null
+        splitCardWidthDp = null,
+        edgeGapDp = portraitEdgeGapDp(settings.yOffset)
     ).dp
     // Where the picker island starts, as a fraction of the island's width (landscape split layout).
     val pickerLeftFraction = splitPickerLeftFraction(expandedWidth.value, configuration.screenWidthDp.toFloat())
@@ -359,7 +361,8 @@ internal fun rememberIslandLayout(
         notchHeightDp = com.agupta07505.smartisland.data.collapsedCompanionSizeDp(settings),
         circleSizeDp = com.agupta07505.smartisland.data.collapsedCompanionSizeDp(settings),
         compactGapDp = COMPACT_INDICATOR_GAP_DP,
-        isLandscape = isLandscape
+        isLandscape = isLandscape,
+        yOffsetDp = settings.yOffset
     )
     // Landscape: where the expanded card starts depends on where the collapsed pill sits.
     // - Pill in a corner (clear of the card): the card moves up to a small gap from the screen edge.
@@ -497,8 +500,13 @@ internal fun rememberIslandLayout(
     val topShiftState = transition.animateDp(transitionSpec = { if (initialState == targetState) settleOrSnap else sizeSpec }, label = "islandTopShift") {
         if (it) 0.dp else collapsedTopShift
     }
+    // Portrait: the card hugs the screen edge, so its corners follow the device's (concentric: screen radius minus the padding).
+    val expandedRadius = remember(context, isLandscape, settings.yOffset) {
+        val device = if (isLandscape) 0f else deviceCornerRadiusDp(context)
+        if (device > 0f) (device - portraitEdgeGapDp(settings.yOffset)).coerceAtLeast(12f).dp else 34.dp
+    }
     val radiusState = transition.animateDp(transitionSpec = { if (initialState == targetState) settleOrSnap else if (!targetState && collapseOnPill) collapseSettleSpec else sizeSpec }, label = "islandRadius") {
-        if (it) 34.dp else settings.cornerRadius.dp
+        if (it) expandedRadius else settings.cornerRadius.dp
     }
 
     // Expanding: the collapsed content leaves quickly while the card grows, then the card content

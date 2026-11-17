@@ -215,14 +215,14 @@ fun CustomControlButton(
                 bitmap = icon,
                 contentDescription = control.label,
                 colorFilter = ColorFilter.tint(LocalIslandPalette.current.text),
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(size * 0.6f)
             )
         } else {
             Icon(
                 imageVector = MediaControls.fallbackIcon(control.label),
                 contentDescription = control.label,
                 tint = LocalIslandPalette.current.text,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(size * 0.6f)
             )
         }
     }

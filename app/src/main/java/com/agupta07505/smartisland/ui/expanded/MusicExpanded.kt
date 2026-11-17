@@ -39,6 +39,9 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -196,7 +199,13 @@ fun MusicExpanded(
             .wrapContentHeight()
     ) {
         // Plain black card, no artwork backdrop: the visualizer is the only decoration.
-        Box(Modifier.matchParentSize().background(Color.Black))
+        val topInset = LocalCardTopInset.current
+        Box(
+            Modifier.matchParentSize().drawBehind {
+                // Also over the strip the host padded in above the card's content.
+                drawRect(Color.Black, Offset(0f, -topInset.toPx()), Size(size.width, size.height + topInset.toPx()))
+            }
+        )
 
         // Behind the buttons, in front of the artwork backdrop.
         MediaVisualizerBackground(
@@ -237,8 +246,8 @@ fun MusicExpanded(
                 val thumb = remember(notification?.largeIcon) { notification?.largeIcon?.asImageBitmap() } ?: artworkImage
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(12.dp))
                         .background(palette.text.copy(alpha = 0.12f))
                 ) {
                     if (thumb != null) {
@@ -256,7 +265,7 @@ fun MusicExpanded(
                         color = palette.text,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        fontSize = 15.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Row(
@@ -269,14 +278,14 @@ fun MusicExpanded(
                             color = palette.textSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            fontSize = 12.sp
+                            fontSize = 14.sp
                         )
                     }
                 }
                 // Output switch: opens the playing app's output picker.
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(40.dp)
                         .bounceClick {
                             resetTimer()
                             notification?.packageName?.let { pkg ->
@@ -287,7 +296,7 @@ fun MusicExpanded(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.Podcasts, "Switch output", tint = palette.textSecondary, modifier = Modifier.size(22.dp))
+                    Icon(Icons.Rounded.Podcasts, "Switch output", tint = palette.textSecondary, modifier = Modifier.size(28.dp))
                 }
             }
             // elapsed - thin bar - total. No labels for streams without a length: the bar cannot seek there either.
@@ -344,11 +353,11 @@ fun MusicExpanded(
             ) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     controls.leftCustom.forEach { custom ->
-                        CustomControlButton(custom, controller, notification, 40.dp, resetTimer)
+                        CustomControlButton(custom, controller, notification, 46.dp, resetTimer)
                     }
                 }
                 controls.beforePrevious.forEach { custom ->
-                    CustomControlButton(custom, controller, notification, 40.dp, resetTimer)
+                    CustomControlButton(custom, controller, notification, 46.dp, resetTimer)
                 }
                 if (controls.hasPrevious) {
                     MediaShadeIconButton(Icons.Rounded.SkipPrevious, "Previous", onClick = {
@@ -394,11 +403,11 @@ fun MusicExpanded(
                     })
                 }
                 controls.afterNext.forEach { custom ->
-                    CustomControlButton(custom, controller, notification, 40.dp, resetTimer)
+                    CustomControlButton(custom, controller, notification, 46.dp, resetTimer)
                 }
                 Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
                     controls.rightCustom.forEach { custom ->
-                        CustomControlButton(custom, controller, notification, 40.dp, resetTimer)
+                        CustomControlButton(custom, controller, notification, 46.dp, resetTimer)
                     }
                 }
             }
