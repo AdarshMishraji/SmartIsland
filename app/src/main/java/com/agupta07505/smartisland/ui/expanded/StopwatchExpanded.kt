@@ -204,7 +204,7 @@ private fun StopwatchExpandedMiui(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onOpenNotification() }
-            .padding(start = 18.dp, top = 14.dp, end = 18.dp, bottom = bottomPadding),
+            .padding(start = 18.dp, top = cardTopPadding(14.dp), end = 18.dp, bottom = bottomPadding),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -418,7 +418,7 @@ private fun StopwatchExpandedCurrent(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onOpenNotification() }
-            .padding(start = 18.dp, top = 14.dp, end = 18.dp, bottom = bottomPadding),
+            .padding(start = 18.dp, top = cardTopPadding(14.dp), end = 18.dp, bottom = bottomPadding),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

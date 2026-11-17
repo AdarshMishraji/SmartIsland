@@ -192,7 +192,7 @@ internal enum class CompactNotificationShape { MiniPill, Circle }
 
 internal fun defaultEstimatedHeightForMode(mode: IslandMode?): Dp {
     return when (mode) {
-        IslandMode.Music -> 215.dp
+        IslandMode.Music -> 165.dp
         IslandMode.Notification -> 135.dp
         IslandMode.IncomingCall, IslandMode.Battery -> 115.dp
         IslandMode.LiveActivity -> 180.dp
@@ -212,4 +212,22 @@ internal fun compactNotificationShapes(
     !expanded -> listOf(CompactNotificationShape.Circle)
     notificationCount == 2 -> listOf(CompactNotificationShape.MiniPill)
     else -> listOf(CompactNotificationShape.MiniPill, CompactNotificationShape.Circle)
+}
+
+/** Portrait, non-notch: the strip a card pads its content down by, so the content starts below the status bar / camera. */
+internal fun cardTopInsetDp(isLandscape: Boolean, enableNotchMode: Boolean, statusBarHeightDp: Float, yOffsetDp: Float): Float =
+    if (!isLandscape && !enableNotchMode) (statusBarHeightDp - portraitEdgeGapDp(yOffsetDp)).coerceAtLeast(0f) else 0f
+
+/** The top padding a card gives up when the strip above it takes its place (see cardTopPadding). */
+private fun removedTopPaddingDp(mode: IslandMode?): Float = when (mode) {
+    IslandMode.Music -> 10f
+    IslandMode.Bluetooth, IslandMode.Flashlight, IslandMode.ScreenRecording, IslandMode.AudioRecording,
+    IslandMode.Timer, IslandMode.Stopwatch -> 14f
+    else -> 20f
+}
+
+/** The estimate used until a card is measured: the card's usual height, with its own top padding swapped for the strip. */
+internal fun estimatedCardHeight(mode: IslandMode?, topInset: Dp): Dp {
+    val base = defaultEstimatedHeightForMode(mode)
+    return if (topInset > 0.dp) (base - removedTopPaddingDp(mode).dp + topInset).coerceAtLeast(topInset) else base
 }

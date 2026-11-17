@@ -107,3 +107,8 @@ internal fun Modifier.islandSurface(
 
 /** Height of the status-bar strip at the top of an expanded card (portrait); a card that paints its own backdrop extends it upward over this. */
 val LocalCardTopInset = androidx.compose.runtime.compositionLocalOf { 0.dp }
+
+/** A card's own top padding: none under the status-bar strip (the content then starts right below the camera), [normal] otherwise. */
+@androidx.compose.runtime.Composable
+internal fun cardTopPadding(normal: androidx.compose.ui.unit.Dp): androidx.compose.ui.unit.Dp =
+    if (LocalCardTopInset.current > 0.dp) 0.dp else normal

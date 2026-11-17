@@ -90,7 +90,7 @@ fun IncomingCallExpanded(
             .fillMaxWidth()
             .wrapContentHeight()
             .heightIn(min = 64.dp, max = 110.dp)
-            .padding(start = 18.dp, top = 20.dp, end = 18.dp, bottom = bottomPadding),
+            .padding(start = 18.dp, top = cardTopPadding(20.dp), end = 18.dp, bottom = bottomPadding),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

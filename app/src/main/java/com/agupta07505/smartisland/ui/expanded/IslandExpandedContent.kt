@@ -251,6 +251,13 @@ fun IslandExpandedContent(
         }
     }
 
+    // When the island opens on another card than the one the pager shows (a notification opened from the side circle while the music
+    // card was the shown page), the pager jumps to it at once: scrolling there took the shell to the old card's height first.
+    val cardShownNow = LocalCardShown.current
+    val shownAtMs = remember { longArrayOf(0L) }
+    val wasShown = remember { booleanArrayOf(false) }
+    if (cardShownNow && !wasShown[0]) shownAtMs[0] = android.os.SystemClock.uptimeMillis()
+    wasShown[0] = cardShownNow
     // Restarts when the pages change shape, which cancels a running scroll aimed at the old page numbers.
     LaunchedEffect(selectedPage, pageCards.size, pageGroups, siblingPickerOpen) {
         if (shapeChanged) return@LaunchedEffect
@@ -261,7 +268,8 @@ fun IslandExpandedContent(
             !pagerState.isScrollInProgress &&
             pagerState.currentPage != selectedPage
         ) {
-            if (snapPageSync()) pagerState.scrollToPage(selectedPage) else pagerState.animateScrollToPage(selectedPage)
+            val justOpened = android.os.SystemClock.uptimeMillis() - shownAtMs[0] < 400L
+            if (snapPageSync() || !cardShownNow || justOpened) pagerState.scrollToPage(selectedPage) else pagerState.animateScrollToPage(selectedPage)
         }
     }
 
@@ -343,7 +351,7 @@ fun IslandExpandedContent(
 
         val currentPageHeightRaw = currentNotification?.let { pageHeights[it.key] }
         val currentPageHeight = currentPageHeightRaw?.let { clampHeightForMode(currentNotification, it) }
-            ?: (com.agupta07505.smartisland.ui.defaultEstimatedHeightForMode(currentNotification?.mode) + topInset)
+            ?: com.agupta07505.smartisland.ui.estimatedCardHeight(currentNotification?.mode, topInset)
 
         val naturalTargetHeight = run {
             val nextPage = if (offsetFraction > 0f) {
@@ -356,7 +364,7 @@ fun IslandExpandedContent(
             val nextNotification = cardAt(nextPage)
             val nextHeightRaw = nextNotification?.let { pageHeights[it.key] }
             val nextHeight = (nextHeightRaw?.let { clampHeightForMode(nextNotification, it) }
-                ?: (com.agupta07505.smartisland.ui.defaultEstimatedHeightForMode(nextNotification?.mode) + topInset))
+                ?: com.agupta07505.smartisland.ui.estimatedCardHeight(nextNotification?.mode, topInset))
             val fraction = kotlin.math.abs(offsetFraction)
             (currentPageHeight + (nextHeight - currentPageHeight) * fraction).coerceIn(72.dp, 260.dp + topInset)
         }
@@ -833,6 +841,10 @@ fun IslandExpandedContent(
             }
             HorizontalPager(
                 state = pagerState,
+                // Pages of different heights hang from the top: centred (the default), a short page opened while the pager is still sized
+                // for a taller one (a notification opened from the side circle while the music card was the shown page) sat lower in
+                // the shell, with an empty black band above it, until the pager settled.
+                verticalAlignment = Alignment.Top,
                 // Preview, reader and an open picture also stop the sideways card swipe (only swipe up / down work there).
                 userScrollEnabled = !horizontalSwipeActionsActive && LocalCardSteps.current
                     .stepsFor(notifications.getOrNull(pagerState.currentPage)?.key).depth ==
@@ -1236,7 +1248,7 @@ private fun EmptyExpanded(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight(unbounded = true)
-            .padding(start = 18.dp, top = 16.dp, end = 18.dp, bottom = 12.dp),
+            .padding(start = 18.dp, top = cardTopPadding(16.dp), end = 18.dp, bottom = 12.dp),
         verticalArrangement = Arrangement.Center
     ) {
         val loadedApps = apps

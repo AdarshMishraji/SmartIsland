@@ -234,7 +234,8 @@ fun MusicExpanded(
                         Modifier.graphicsLayer { alpha = foregroundAlpha().coerceIn(0f, 1f) }
                     } else Modifier
                 )
-                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = bottomPadding)
+                // Tight vertical padding; under the status-bar strip (LocalCardTopInset) the content starts right where the strip ends.
+                .padding(start = 16.dp, top = if (LocalCardTopInset.current > 0.dp) 0.dp else 10.dp, end = 16.dp, bottom = 6.dp)
         ) {
             // Thumbnail + title / artist.
             Row(

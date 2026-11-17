@@ -23,15 +23,16 @@ internal fun rememberExpandedHeight(
     activeMode: IslandMode,
     noNotifications: Boolean,
     expanded: Boolean,
-    prewarmWanted: Boolean
+    prewarmWanted: Boolean,
+    topInset: Dp = 0.dp
 ): MutableState<Dp> {
     val initialEstimatedHeight = remember(activeMode, noNotifications) {
-        if (noNotifications) 135.dp else defaultEstimatedHeightForMode(activeMode)
+        if (noNotifications) 135.dp else estimatedCardHeight(activeMode, topInset)
     }
     val expandedHeight = remember { mutableStateOf(initialEstimatedHeight) }
-    LaunchedEffect(activeMode, noNotifications, prewarmWanted) {
+    LaunchedEffect(activeMode, noNotifications, prewarmWanted, topInset) {
         if (!expanded && !prewarmWanted) {
-            expandedHeight.value = if (noNotifications) 135.dp else defaultEstimatedHeightForMode(activeMode)
+            expandedHeight.value = if (noNotifications) 135.dp else estimatedCardHeight(activeMode, topInset)
         }
     }
     return expandedHeight

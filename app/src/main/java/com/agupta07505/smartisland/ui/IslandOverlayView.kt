@@ -234,7 +234,10 @@ fun IslandOverlayView(
     // it.
     val screenOn = rememberScreenInteractive()
     val prewarmWanted = notifications.isNotEmpty() && com.agupta07505.smartisland.model.CardPrewarm.shouldPrewarm(activeMode, screenOn)
-    var expandedHeight by rememberExpandedHeight(activeMode, notifications.isEmpty(), expanded, prewarmWanted)
+    var expandedHeight by rememberExpandedHeight(
+        activeMode, notifications.isEmpty(), expanded, prewarmWanted,
+        topInset = cardTopInsetDp(isLandscape, settings.enableNotchMode, statusBarHeight, settings.yOffset).dp
+    )
     AutoHideEffects(expanded, notifications, selectedIndex, settings, ui)
 
     // The extra cutouts beside the pill keep the state they had when the widget island opened, until it is back in the cutout.
@@ -374,6 +377,8 @@ fun IslandOverlayView(
 
         // Notch mode, collapsed: square top corners. The radius itself is read in the draw phase (IslandShellModifiers.kt).
         val squareTop = settings.enableNotchMode && !expanded
+        // Portrait: the open card covers the top of the screen, so no pill (collapsed content, compact bubbles) is drawn over it.
+        val portraitExpanded = expanded && !isLandscape && !settings.enableNotchMode
 
         // Landscape, expanded: the collapsed pill stays at its own spot beside / above the card.
         CornerPill(settings, layout, secondary, cb, ui, runner, scope, context)
@@ -462,7 +467,7 @@ fun IslandOverlayView(
                 ),
             contentAlignment = Alignment.TopCenter
         ) {
-            if (layout.collapsedShown) {
+            if (layout.collapsedShown && !portraitExpanded) {
                 CollapsedContentLayer(
                     layout = layout,
                     fade = collapsedContentFade,
@@ -530,7 +535,7 @@ fun IslandOverlayView(
             )
         }
 
-        SecondaryBubble(settings, layout, secondary, pillExit, switchScaleAnim, cornerLockY, cutoutNotifications, onPageSelected, cb, ui)
+        if (!portraitExpanded) SecondaryBubble(settings, layout, secondary, pillExit, switchScaleAnim, cornerLockY, cutoutNotifications, onPageSelected, cb, ui)
         WidgetIslandLayer(
             open = widgetIslandOpen,
             expanded = expanded,
@@ -547,7 +552,7 @@ fun IslandOverlayView(
             onShownChange = onWidgetIslandShownChange,
             modifier = Modifier.align(Alignment.TopCenter)
         )
-        TertiaryPill(settings, layout, secondary, switchScaleAnim, cornerLockY, screenCenter, onPageSelected, cb)
+        if (!portraitExpanded) TertiaryPill(settings, layout, secondary, switchScaleAnim, cornerLockY, screenCenter, onPageSelected, cb)
 
         // Portrait: no separate idle pill. While expanded, the pill's glyph-free centre closes the island.
         val closeZone = rememberExpandedCloseZone(settings, isLandscape)
